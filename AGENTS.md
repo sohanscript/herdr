@@ -28,7 +28,7 @@ These instructions are layered.
 - **State is separated from runtime.** `AppState` is pure data, testable without PTYs or async. `PaneState` is separate from `PaneRuntime`. Workspace logic doesn't need real terminals.
 - **Render is pure.** `compute_view()` handles geometry and mutations. `render()` takes `&AppState` and only draws. Never mutate state during render.
 - **No god objects.** If a module is doing too many things, split it. `app/` is already split into state, actions, and input. Keep it that way.
-- **Platform code is isolated.** OS-specific behavior lives in `src/platform/`. Core modules don't have `#[cfg(target_os)]`.
+- **Platform code is isolated.** OS-specific behavior lives in the matching `src/platform/<os>.rs` file, with only shared traits, types, wrappers, and testable contracts in `src/platform/mod.rs`. Core modules don't have `#[cfg(target_os)]`.
 - **Detection is decoupled.** The detector reads a screen snapshot, never touches the parser or viewport state.
 - **Screen detection is evidence-based.** When changing `src/detect/manifests/`, first capture the relevant bottom-buffer state with `herdr agent read <pane> --source detection --format text` and, when styling or alternate screen behavior matters, `--format ansi`. Decide which visible controls are invariant, which are alternatives, and encode them as explicit AND/OR gates. Do not match whole-pane incidental text, and do not use the user-visible viewport for agent status because users can scroll it.
 - **UI patterns should be reused.** Herdr is a mouse-first TUI. New dialogs, onboarding, settings, and post-update flows should follow the existing UI/UX language and interaction patterns instead of inventing one-off screens. Prefer reusing existing modal/screen structure, affordances, and close actions so the app feels consistent.
@@ -154,9 +154,9 @@ Stable public docs live in `website/src/content/docs/`. They are the currently r
 
 Unreleased docs live in `docs/next/website/src/content/docs/`. Update those when a user-facing change needs docs before the next release. `docs/next/README.md` and `docs/next/CHANGELOG.md` stage root README and changelog changes.
 
-The website build runs `website/scripts/prepare-docs.mjs`. It keeps stable docs at `/docs/` and generates preview docs at `/docs/preview/` from `docs/next/website/src/content/docs/`. Do not edit generated `website/src/content/docs/preview/`.
+The website build runs `website/scripts/prepare-docs.mjs`. It keeps stable docs at `/docs/`, generates next docs at `/docs/preview/` from `docs/next/website/src/content/docs/`, and generates immutable release docs from `docs/versions/`. Do not edit generated `website/src/content/docs/preview/` or `website/src/content/docs/_versions/`.
 
-During release review, copy approved next docs into the stable docs and run `just release-docs-check`. Normal feature/fix work should not edit root `README.md`, root `CHANGELOG.md`, or `website/latest.json` unless explicitly requested.
+During release review, finalize `docs/next` and run `just release-docs-check`. Do not copy next docs into the stable website manually. After the GitHub Release succeeds, release CI snapshots the tagged next docs, promotes them to stable, updates `latest.json`, and deploys them together. Normal feature/fix work should not edit root `README.md`, root `CHANGELOG.md`, stable website docs, or `website/latest.json` unless explicitly requested.
 
 Put local PRDs, planning notes, and exploratory specs under `.local/prd/`; `.local/` is ignored and locally controlled.
 
@@ -217,7 +217,7 @@ just check
 just release 0.x.y
 ```
 
-Before stable release, run `/pre-release-audit`, finalize `docs/next`, copy approved docs into the stable docs/root files, and let `just release-docs-check` verify the sync. `just release` prepares the release commit, tags it, pushes the tag, and GitHub Actions builds binaries, creates the GitHub release, closes released issues, and updates `website/latest.json`.
+Before stable release, run `/pre-release-audit`, finalize `docs/next`, and let `just release-docs-check` validate the staged docs and website build. `just release` prepares the changelog and release commit, tags it, and pushes the tag. GitHub Actions builds binaries, creates the GitHub release, closes released issues, snapshots and promotes the tagged docs, and updates `website/latest.json`.
 
 The release workflows must publish these four assets:
 
